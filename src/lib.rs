@@ -5,6 +5,7 @@ mod spinlock;
 use crate::errors::*;
 use crate::spinlock::*;
 use std::cell::UnsafeCell;
+use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 const EMPTY: u8 = 0;
@@ -208,22 +209,12 @@ impl<V: Default> Map<V> {
 
 #[inline]
 fn hash_id(key: &ID) -> u64 {
-    let a = u64::from_be_bytes(<[u8; 8]>::try_from(&key[0..8]).unwrap_or_else(|_| {
-        eprintln!("Unable to slice 8 bytes (a) from an ID.\nID: {:?}", &key);
-        [0u8; 8]
-    }));
-    let b = u64::from_be_bytes(<[u8; 8]>::try_from(&key[8..16]).unwrap_or_else(|_| {
-        eprintln!("Unable to slice 8 bytes (b) from an ID.\nID: {:?}", &key);
-        [0u8; 8]
-    }));
-    let c = u64::from_be_bytes(<[u8; 8]>::try_from(&key[16..24]).unwrap_or_else(|_| {
-        eprintln!("Unable to slice 8 bytes (c) from an ID.\nID: {:?}", &key);
-        [0u8; 8]
-    }));
-    let d = u64::from_be_bytes(<[u8; 8]>::try_from(&key[24..32]).unwrap_or_else(|_| {
-        eprintln!("Unable to slice 8 bytes (d) from an ID.\nID: {:?}", &key);
-        [0u8; 8]
-    }));
+    let ptr = key.as_ptr() as *const u64;
+
+    let a = unsafe { ptr::read_unaligned(ptr).to_be() };
+    let b = unsafe { ptr::read_unaligned(ptr.add(1)).to_be() };
+    let c = unsafe { ptr::read_unaligned(ptr.add(2)).to_be() };
+    let d = unsafe { ptr::read_unaligned(ptr.add(3)).to_be() };
 
     let mut x = a ^ b.rotate_left(13);
     x ^= c.rotate_left(29);
